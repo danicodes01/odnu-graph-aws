@@ -3,3 +3,4 @@ __pycache__
 poetry.lock
 odnu-graph-aws/
 packages/
+copilot/odnu-graph-aws/manifest.yml
