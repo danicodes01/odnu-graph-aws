@@ -1,6 +1,6 @@
-uvicorn==0.23.2
+uvicorn>=0.23.2,<1.0
 langserve[server]>=0.0.30
-pydantic>=2,<3
+pydantic>=1.10.0,<2
 langchain-core==0.3.12
 langgraph==0.2.38
 langchain==0.3.3
