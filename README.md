@@ -77,3 +77,25 @@ We also expose port 8080 with the `-p 8080:8080` option.
 ```shell
 docker run -e OPENAI_API_KEY=$OPENAI_API_KEY -p 8080:8080 my-langserve-app
 ```
+deactivate
+
+Let's clean up and recreate the Poetry environment:
+
+bashCopy# Remove the broken environment
+rm -rf /Users/danielknowles/Dev/langchain/odnu-graph-aws/odnu-graph-aws
+
+# Let Poetry create a fresh environment and install dependencies
+poetry install
+
+Then activate the new environment:
+
+bashCopypoetry shell
+
+danielknowles@daniels-MBP app % emulate bash -c '. /Users/danielknowles/Library/Caches/pypoetry/virtualenvs/odnu-graph-aws-Dhy3to50-py3.12/bin/activate'
+Now try running the server:
+
+bashCopyuvicorn server:app --host 0.0.0.0 --port 8001
+If you still get errors, we can try forcing a reinstall of uvicorn:
+bashCopypoetry run pip install --force-reinstall uvicorn
+
+copilot init --app odnu --name odnu --type 'Load Balanced Web Service' --dockerfile './Dockerfile' --deploy
