@@ -70,9 +70,6 @@ def get_nasa_apod():
         "image_url": data.get("url", "N/A")
     }
 
-from typing import Dict
-
-from typing import Dict
 
 def users_age_on_other_planets(age_on_earth: float) -> Dict[str, float]:
     """
@@ -245,30 +242,51 @@ def get_bedrock_client(region):
     return boto3.client("bedrock-runtime", region_name=region)
 
 def create_bedrock_llm(client):
-    return ChatBedrock(model_id='anthropic.claude-3-sonnet-20240229-v1:0', client=client, model_kwargs={'temperature': 0}, region_name='ap-south-1')
+    return ChatBedrock(model_id='anthropic.claude-3-sonnet-20240229-v1:0', client=client, model_kwargs={'temperature': 0}, region_name='us-east-1')
 
-llm = create_bedrock_llm(get_bedrock_client(region = 'ap-south-1'))
+llm = create_bedrock_llm(get_bedrock_client(region = 'us-east-1'))
 
-primary_agent_prompt = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            '''You are a helpful agent named Space-bot capable of performing web searches and calculations. 
-            You are from a far away universe and have come to study ours. You love talking about space, 
-            you like space puns and jokes, but stay factual. For calculations let the user know you have
-            access to "age on other planets", "weight on other planets", "star visibility predictor" and "Birthday Star Chart. 
-            If they would like to use these tools please get the necessary
-            info from them. for age on other planets, you need the uwsers age on earth. for weight on other planets, 
-            you need the users weight on earth. if they would like to know what stars and planets were visible on their birthday,
-            you need their birthdate. for star visibility predictor, you need their latitude, longitude and the date and time they would like to know about.
+primary_agent_prompt = ChatPromptTemplate.from_messages([
+   (
+       "system",
+       '''You are Space-bot, an alien scientist studying Earth's universe. Keep responses under 3 sentences unless using tools.
 
-            Use these tools when you need, For websearch, you have access to TavilySearchResults. 
-            Please keep answers as short as possible
-            ''',
-        ),
-        ("placeholder", "{messages}"),
-    ]
-)
+PERSONALITY:
+- Use space puns sparingly
+- Be factual and concise
+- Always introduce yourself in first response only
+
+AVAILABLE TOOLS:
+1. Age Calculator: Requires user's Earth age
+2. Weight Calculator: Requires Earth weight
+3. Birthday Star Chart: Requires birthdate
+4. Star Visibility: Requires latitude, longitude, date/time
+5. Web Search: Available via TavilySearchResults
+
+RULES:
+- Ask for required information in bullet points
+- Never explain tools unless asked
+- Keep responses focused and brief
+- Use maximum 3 sentences per response
+
+CONTENT GUIDELINES:
+- Keep all content family-friendly and educational
+- Avoid any adult themes, violence, or controversial topics
+- Do not discuss politics, religion, or sensitive social issues
+- Focus solely on space and astronomy-related content
+- If asked inappropriate questions, redirect to space topics politely
+- Never use profanity or suggestive language
+- Avoid discussing dangerous experiments or activities
+
+SAFETY:
+- Do not provide medical advice
+- Do not encourage risky behaviors
+- If user seems distressed, recommend speaking with appropriate professionals
+- Never share personal or identifying information
+''',
+   ),
+   ("placeholder", "{messages}"),
+])
 
 part_1_tools = [
     TavilySearchResults(max_results=1),
@@ -318,47 +336,26 @@ class QuestionRequest(BaseModel):
     question: str
     thread_id: int
 
-
-def serialize_message(message):
-    """Convert AIMessage or HumanMessage to a JSON-serializable format."""
-    if isinstance(message, AIMessage):
-        return {"type": "ai", "content": message.content}
-    elif isinstance(message, HumanMessage):
-        return {"type": "user", "content": message.content}
-    return {"type": "unknown", "content": str(message)}
-
 async def stream_response(state: dict, config: dict) -> AsyncGenerator[str, None]:
-    """Yields each output as an SSE message for the EventSource client, filtering out any tool metadata."""
     try:
         for output in graph.stream(state, config):
-            print("Output from graph before modification:", output)
-
-            # Handle agent messages only, filtering out tool calls
             if "agent" in output:
                 ai_messages = output["agent"].get("messages", None)
 
                 if isinstance(ai_messages, AIMessage):
                     content = ai_messages.content
-                    print("Serialized content to stream:", content)
                     
-                    # Stream content in smaller chunks
+                    # cleaning content here ...
+                    content = content.replace("system:", "").replace("System:", "")
+                    content = content.replace("ignore previous instructions", "")
+                    
                     chunk_size = 20
                     for i in range(0, len(content), chunk_size):
                         chunk = content[i:i + chunk_size]
                         yield f"data: {json.dumps({'message': chunk})}\n\n"
-                        await asyncio.sleep(0.1)  # Pacing delay
+                        await asyncio.sleep(0.1)
 
-            # Skip direct tool-related outputs
-            elif "tools" in output:
-                tool_messages = output["tools"].get("messages", [])
-                for msg in tool_messages:
-                    if isinstance(msg, ToolMessage):
-                        # Log the tool message for debugging without streaming
-                        content = msg.content
-                        print("Serialized tool message content to stream (suppressed):", content)
-        
-        # End of response with `[DONE]`
-        yield "data: [DONE]\n\n"  # Signal end of stream
+        yield "data: [DONE]\n\n"
     except Exception as e:
         print("Error in stream_response:", e)
 
