@@ -4,4 +4,4 @@ poetry.lock
 odnu-graph-aws/
 packages/
 copilot/odnu-graph-aws/manifest.yml
-copilot/odnu/manifest.yml
+copilot/odnu/manifest.ymlcopilot/odnu/manifest.yml
